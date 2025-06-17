@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 const shiftOptions = ['Morning', 'Day', 'Evening'];
 
@@ -23,15 +24,29 @@ const AddStudent = () => {
   const [profilePreview, setProfilePreview] = useState('');
   const [errors, setErrors] = useState({});
   const [batchOptions, setBatchOptions] = useState([]);
+  const selectedBatch = batchOptions.find(b => b._id.toString() ===(form.batch));
+  const batchName = selectedBatch ? selectedBatch.name : 'xxxxx';
 
-  // Fetch batches from localStorage
+  // Fetch batches from api
   useEffect(() => {
-    const storedBatches = JSON.parse(localStorage.getItem('batches') || '[]');
-    setBatchOptions(storedBatches.map(b => b.name));
-    // Set default batch if available
-    if (storedBatches.length > 0) {
-      setForm(prev => ({ ...prev, batch: storedBatches[0].name }));
+
+
+    const fetchBatch = async () => {
+      try {
+        const response = await axios.get("http://localhost:8000/api/getAllBatch");
+
+
+        setBatchOptions(response.data)
+
+      } catch (error) {
+        console.error("Error fetching Batch", error)
+      }
     }
+
+
+
+    fetchBatch();
+
   }, []);
 
   const handleChange = (e) => {
@@ -65,19 +80,36 @@ const AddStudent = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validate()) {
-      // Store student data in localStorage
-      const students = JSON.parse(localStorage.getItem('students') || '[]');
-      const newStudent = { ...form, id: Date.now(), profile: undefined }; // Add unique id
-      students.push(newStudent);
-      localStorage.setItem('students', JSON.stringify(students));
-      alert("Student added successfully!");
-      setForm(initialForm);
-      setProfilePreview('');
-      setErrors({});
+    if (!validate()) return;
+
+    try {
+      const formData = new FormData();
+      for (const key in form) {
+        formData.append(key, form[key]);
+      }
+      const response = await axios.post("http://localhost:8000/api/create/student", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      if (response.status === 201 || response.status === 200) {
+        alert("Student added successfully!");
+        setForm(initialForm);
+        console.log(form);
+        setProfilePreview("");
+        setErrors({});
+      } else {
+        alert("Something went wrong");
+      }
+
+    } catch (error) {
+      console.error(error);
+      alert("Failed to add student. Check console for details.")
+
     }
+
   };
 
   const handleImageChange = (e) => {
@@ -156,13 +188,13 @@ const AddStudent = () => {
               value={form.batch}
               onChange={handleChange}
               className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition"
-              required
+
             >
               {batchOptions.length === 0 ? (
                 <option value="">No batch found</option>
               ) : (
-                batchOptions.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
+                batchOptions.map(batch => (
+                  <option key={batch._id} value={batch._id}>{batch.name}</option>
                 ))
               )}
             </select>
@@ -295,7 +327,7 @@ const AddStudent = () => {
             Full Name: {form.firstName || 'xxxxx'} {form.middleName || 'xxxxx'} {form.lastName || 'xxxxx'}
           </div>
           <div className="text-xl text-blue-600">
-            Batch: {form.batch || 'xxxxx'} &bull; Shift: {form.shift || 'xxxxx'}
+             Batch: {batchName} &bull; Shift: {form.shift || 'xxxxx'}
           </div>
           <div className="text-xl text-gray-700">
             Phone: {form.phone || 'xxxxx'}

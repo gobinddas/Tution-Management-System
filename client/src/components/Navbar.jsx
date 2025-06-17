@@ -1,10 +1,27 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import { Bell, Search } from 'lucide-react';
 import zenith from '../assets/zenith.webp'; // Make sure the path is correct
 
 const Navbar = () => {
   // Dummy profile image
   const profileImg = "https://i.pravatar.cc/40?img=3";
+
+  const[userName, setUserName] = useState("");
+  
+  useEffect(()=>{
+    const storedUser = localStorage.getItem("userData");
+    if(storedUser){
+      try {
+        const user = JSON.parse(storedUser);
+        setUserName(user.name || "User")
+        
+      } catch (error) {
+        console.log("Error parsing user data", error)
+        setUserName("User");
+      }
+    }
+  },[])
+
 
   return (
     <nav className="flex flex-col md:flex-row items-center justify-between bg-[#1b6896] px-4  py-3 shadow-lg  gap-3">
@@ -34,6 +51,7 @@ const Navbar = () => {
           <Bell size={22} className="text-white group-hover:text-[#a16f55] transition-colors" />
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 shadow">3</span>
         </button>
+        <h3>{userName}</h3>
         <img
           src={profileImg}
           alt="Profile"

@@ -1,18 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import AddStudent from '../components/AddStudent';
-import EditStudent from '../components/EditStudent';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { Link } from "react-router-dom";
+import AddStudent from "../components/AddStudent";
 
-function getInitials(name) {
-  const names = name.split(' ');
-  const initials = names[0][0] + (names[1]?.[0] || '');
-  return initials.toUpperCase();
-}
+
 
 // Helper to generate random 6-character string
 function generateRandomCode(length = 6) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
   for (let i = 0; i < length; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -20,7 +17,7 @@ function generateRandomCode(length = 6) {
 }
 
 const Students = () => {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [students, setStudents] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -28,62 +25,78 @@ const Students = () => {
 
   // For delete confirmation popup
   const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [deleteCode, setDeleteCode] = useState('');
-  const [deleteInput, setDeleteInput] = useState('');
+  const [deleteCode, setDeleteCode] = useState("");
+  const [deleteInput, setDeleteInput] = useState("");
   const [deleteStudentId, setDeleteStudentId] = useState(null);
-  const [deleteError, setDeleteError] = useState('');
+  const [deleteError, setDeleteError] = useState("");
 
-  // Fetch students from localStorage on mount or when showAdd changes
+  // Fetch students from api
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('students') || '[]');
-    setStudents(
-      stored.map((s) => ({
-        id: s.id,
-        name: `${s.firstName || ''} ${s.middleName || ''} ${s.lastName || ''}`.replace(/\s+/g, ' ').trim(),
-        profile: s.profilePreview || '',
-        batch: s.batch || '',
-      }))
-    );
-  }, [showAdd]);
+    const fetchStudents = async () => {
+      try {
+        const response = await axios.get("http://localhost:8000/api/getStudent");
+       console.log("Fetched students:", response.data);
+       setStudents(response.data);
+       
 
-  const filteredStudents = students.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase())
-  );
+       
+      } catch (error) {
+        console.error("Error fetching Students", error);
+      }
+    };
+    fetchStudents();
+  }, []);
+
+  const filteredStudents = students.filter((s) => {
+    const fullName = [s.firstName, s.middleName, s.lastName].filter(Boolean).join(" ");
+    return fullName.toLowerCase().includes(search.toLowerCase());
+  });
 
   // Delete logic with double confirmation
   const handleDeleteClick = (studentId) => {
     setDeleteCode(generateRandomCode());
-    setDeleteInput('');
+    setDeleteInput("");
     setDeleteStudentId(studentId);
-    setDeleteError('');
+    setDeleteError("");
     setShowDeletePopup(true);
   };
+;
 
-  const handleDeleteConfirm = () => {
-    if (deleteInput === deleteCode) {
-      // Remove from localStorage
-      const stored = JSON.parse(localStorage.getItem('students') || '[]');
-      const updated = stored.filter(s => s.id !== deleteStudentId); // <-- FIXED LINE
-      // Get deleted student's name for message
-      const deletedStudent = students.find(s => s.id === deleteStudentId);
-      localStorage.setItem('students', JSON.stringify(updated));
-      setStudents(students.filter(s => s.id !== deleteStudentId));
+
+const handleDeleteConfirm = async () => {
+  if (deleteInput === deleteCode) {
+    try {
+      // Call API to delete the student
+      await axios.delete(`http://localhost:8000/api/delete/student/${deleteStudentId}`);
+      
+      // Remove student from state
+      const deletedStudent = students.find((s) => s._id === deleteStudentId);
+      setStudents(students.filter((s) => s._id !== deleteStudentId));
+      
+      // Close popup and reset state
       setShowDeletePopup(false);
       setDeleteStudentId(null);
-      setDeleteInput('');
-      setDeleteCode('');
-      setDeleteError('');
+      setDeleteInput("");
+      setDeleteCode("");
+      setDeleteError("");
+      
       // Show success message
       if (deletedStudent) {
-        setDeleteError(`${deletedStudent.name} deleted successfully!`);
-        setTimeout(() => setDeleteError(''), 2000);
+        setDeleteError(`${deletedStudent.firstName} ${deletedStudent.lastName} deleted successfully!`);
+        setTimeout(() => setDeleteError(""), 2000);
       }
-    } else {
-      setDeleteError('Code did not match. Try again.');
-      setShowDeletePopup(false);
-      setTimeout(() => setDeleteError(''), 2000);
+    } catch (error) {
+      console.error("Error deleting student:", error);
+      setDeleteError("Error deleting student. Please try again.");
+      setTimeout(() => setDeleteError(""), 2000);
     }
-  };
+  } else {
+    setDeleteError("Code did not match. Try again.");
+    setShowDeletePopup(false);
+    setTimeout(() => setDeleteError(""), 2000);
+  }
+};
+
 
   if (showAdd) {
     return (
@@ -99,7 +112,7 @@ const Students = () => {
     );
   }
 
-  if (showEdit && editStudent) {
+  if (showEdit && editStudent ) {
     return (
       <div className="mx-auto p-6 bg-white rounded-xl shadow">
         <button
@@ -111,32 +124,22 @@ const Students = () => {
         >
           Back to Students
         </button>
-        {/* Pass the full student object including id */}
-        <EditStudent student={editStudent} onDone={() => {
-          setShowEdit(false);
-          setEditStudent(null);
-          // Optionally, refresh students list here if EditStudent does not do it
-          const stored = JSON.parse(localStorage.getItem('students') || '[]');
-          setStudents(
-            stored.map((s) => ({
-              id: s.id,
-              name: `${s.firstName || ''} ${s.middleName || ''} ${s.lastName || ''}`.replace(/\s+/g, ' ').trim(),
-              profile: s.profilePreview || '',
-              batch: s.batch || '',
-            }))
-          );
-        }} />
+      
       </div>
     );
   }
 
   return (
     <div className="f-w p-6 bg-white rounded-xl shadow relative">
+    
+
       {/* Delete Confirmation Popup */}
       {showDeletePopup && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-80 flex flex-col items-center">
-            <div className="mb-3 text-lg font-bold text-red-600">Confirm Delete</div>
+            <div className="mb-3 text-lg font-bold text-red-600">
+              Confirm Delete
+            </div>
             <div className="mb-2 text-gray-700 text-center">
               Type the code below to confirm deletion:
             </div>
@@ -146,7 +149,7 @@ const Students = () => {
             <input
               type="text"
               value={deleteInput}
-              onChange={e => setDeleteInput(e.target.value)}
+              onChange={(e) => setDeleteInput(e.target.value)}
               className="mb-4 w-full px-3 py-2 border border-gray-300 rounded focus:outline-none"
               placeholder="Enter code exactly"
               autoFocus
@@ -186,7 +189,7 @@ const Students = () => {
           type="text"
           placeholder="Search student..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
           className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
       </div>
@@ -196,54 +199,59 @@ const Students = () => {
         </h2>
         <ul className="divide-y divide-blue-100">
           {filteredStudents.length === 0 ? (
-            <li className="py-4 text-gray-500 text-center">No students found.</li>
+            <li className="py-4 text-gray-500 text-center">
+              No students found.
+            </li>
           ) : (
-            filteredStudents.map(student => (
+            filteredStudents.map((student) => (
               <li
-                key={student.id}
+                key={student._id}
                 className="py-3 px-2 flex items-center justify-between hover:bg-blue-100 rounded transition"
               >
                 <span className="flex items-center gap-3">
                   {student.profile && student.profile.length > 0 ? (
                     <img
-                      src={student.profile}
-                      alt={student.name}
+                      src={`http://localhost:8000/uploads/${student.profile}`}
+                      alt={`${student.firstName} ${student.middleName || ""} ${student.lastName}`}
                       className="h-9 w-9 rounded-full object-cover border-2 border-blue-200 bg-white"
                     />
                   ) : (
                     <span className="h-9 w-9 flex items-center justify-center rounded-full bg-blue-600 text-white font-bold text-base border-2 border-blue-200">
                       {(() => {
-                        const names = student.name.split(' ');
-                        const first = names[0]?.[0] || '';
-                        const last = names.length > 1 ? names[names.length - 1][0] : '';
-                        return (first + last).toUpperCase();
+                        // Get initials from first, middle, last name
+                        const first = student.firstName?.[0] || "";
+                        const middle = student.middleName?.[0] || "";
+                        const last = student.lastName?.[0] || "";
+                        return (first + middle + last).toUpperCase();
                       })()}
                     </span>
                   )}
-                  {student.name}
+                  {/* Join first, middle, last name */}
+                  {[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")}
                   {student.batch && (
                     <span className="ml-2 text-xs text-blue-500 font-semibold">
-                      ({student.batch})
+                      ({student.batch.name})
                     </span>
                   )}
                 </span>
                 <div className="flex gap-2">
-                  <button className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold transition">Show Stat</button>
-                  <button className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-semibold transition">Show Fee</button>
-                  <button
+                  <button className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-semibold transition">
+                    Show Stat
+                  </button>
+                  <button className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-semibold transition">
+                    Show Fee
+                  </button>
+                  <Link
+                    to={`/students/edit/${student._id}`}
                     className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs font-semibold transition"
-                    onClick={() => {
-                      setEditStudent(student); // student object includes id
-                      setShowEdit(true);
-                    }}
                   >
                     Edit
-                  </button>
+                  </Link>
                   <button
                     className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-semibold transition"
-                    onClick={() => handleDeleteClick(student.id)}
+                    onClick={() => handleDeleteClick(student._id)}
                   >
-                    Delete
+                    Deelete
                   </button>
                 </div>
               </li>
